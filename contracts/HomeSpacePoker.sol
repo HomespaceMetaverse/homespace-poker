@@ -78,6 +78,8 @@ contract HomeSpacePoker is Ownable {
 
     // All games (gameId => game)
     mapping(uint256 => Game) private games;
+    mapping(address => uint8) highestCombinations;
+
 
     uint256 public lastGameId;
 
@@ -466,7 +468,6 @@ contract HomeSpacePoker is Ownable {
         }
         // evaluating players rank
         uint256 minSplit = game.pot;
-        mapping(address => uint8) memory highestCombinations;
         for (uint256 i = 0; i < game.joined; i++) {
             if (game.players[i].playerStatus == LibPlayer.PlayerStatus.INACTIVE) {
                 uint8 rank = evaluateRank(concatArrays(game.dealerCards.revealedCards, game.players[i].revealedCards));
@@ -482,36 +483,39 @@ contract HomeSpacePoker is Ownable {
             }
             if (minSplit != 0) {
                 uint256 win = 0;
-                address[] memory players;
+                address[] memory players = new address[](game.joined); // upper bound = game.joined
                 for (uint256 j = 0; j < game.joined; j++) {
                     if (game.players[j].spent < minSplit) {
                         win += game.players[j].spent;
                         game.pot -= game.players[j].spent;
                         game.players[j].spent = 0;
                         game.players[j].playerStatus = LibPlayer.PlayerStatus.LEFT;
-                    } else if (game.players[j].spent = minSplit) {
+                    } else if (game.players[j].spent == minSplit) {
                         win += game.players[j].spent;
                         game.pot -= game.players[j].spent;
                         game.players[j].spent = 0;
                         game.players[j].playerStatus = LibPlayer.PlayerStatus.LEFT;
-                        players.push(game.players[j].player);
+                        players[players.length - 1] = game.players[j].player;
                     } else {
                         win += minSplit;
                         game.pot -= minSplit;
                         game.players[j].spent = game.players[j].spent - minSplit;
-                        players.push(game.players[j].player);
+                        players[players.length - 1] = game.players[j].player;
                     }
                 }
-                address[] memory winners;
-                winners.push(players[0]);
+                
+                address[] memory winners = new address[](game.joined); // upper bound = game.joined
+                address[] memory empty;
+                winners[0] = players[0];
                 uint8 maxRank = highestCombinations[players[0]];
                 for (uint256 z = 0; z < players.length; z++) {
                     if (highestCombinations[players[z]] > maxRank) {
                         maxRank = highestCombinations[players[z]];
-                        delete winners;
-                        winners.push(players[z]);
+                        winners = empty;
+                        console.log(winners.length);
+                        winners[winners.length - 1] = players[z];
                     } else if (highestCombinations[players[z]] == maxRank) {
-                        winners.push(players[z]);
+                        winners[winners.length - 1] = players[z];
                     }
                 }
                 if (winners.length > 1) {
@@ -526,7 +530,7 @@ contract HomeSpacePoker is Ownable {
         }
     }
 
-    function concatArrays(LibCard.Card[] memory cards1, LibCard.Card[] memory cards2) private returns (LibCard.Card[]) {
+    function concatArrays(LibCard.Card[] memory cards1, LibCard.Card[] memory cards2) private returns (LibCard.Card[] memory) {
         LibCard.Card[] memory returnArr = new LibCard.Card[](cards1.length + cards2.length);
 
         uint8 i = 0;
